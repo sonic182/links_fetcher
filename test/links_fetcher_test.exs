@@ -13,9 +13,10 @@ defmodule LinksFetcherTest do
   end
 
   test "fetch links" do
-    {:ok, links} = LinksFetcher.fetch_links("https://www.inmoduran.net/es/", 100)
-    all_are_links = Enum.map(links, fn x -> Regex.match?(~r/^[\/]{1}\S*$/, x) end) |>
+    {:ok, links} = LinksFetcher.fetch_links("https://www.inmoduran.net/es/", 3)
+    all_are_links = Enum.map(links, fn x -> Regex.match?(~r/^([\/]{1}[\w-\.\?\&\=\/]*)$/, x) end) |>
       Enum.reduce(true, fn x, y -> x and y end)
     assert all_are_links
   end
+
 end

@@ -1,27 +1,21 @@
 defmodule LinksFetcher do
+  require Logger
   @moduledoc """
   Documentation for LinksFetcher.
   """
-
   @doc """
-  Hello world.
+  Fetch Links.
 
   ## Examples
 
-      iex> LinksFetcher.hello()
-      :world
-
+      iex> LinksFetcher.fetch_links("https://www.google.com", 1)
+      {:ok, ["/preferences?hl=es", "/intl/es/ads/", "/intl/es/policies/privacy/", "/intl/es/policies/terms/"]}
   """
-  def hello do
-    :world
-  end
-
-  def fetch_links(url, depth \\ 1, fetched \\ [], statics \\ false) do
+  def fetch_links(url, depth \\ 1, statics \\ false) do
     base = get_base(url)
     {:ok, fetcher_checker} = Task.start_link(fn -> fetched([]) end)
     parent = self()
     spawn(fn -> do_fetch(url, base, depth, fetcher_checker, statics, parent) end)
-    Process.exit(fetcher_checker, :normal)
     receive do
       {:ok, links} ->
         {:ok, links}
@@ -49,8 +43,8 @@ defmodule LinksFetcher do
         if depth == 0 do
           send(caller, {:ok, []})
         else
-          {:ok, links} = fetch_data(url, statics)
           send(fetcher_checker, {:add, url})
+          {:ok, links} = fetch_data(url, statics)
           if Enum.empty?(links) do
             send(caller, {:ok, []})
           else
@@ -78,6 +72,7 @@ defmodule LinksFetcher do
   end
 
   defp fetch_data(url, statics) do
+    Logger.debug "Fetching: #{url}"
     case :hackney.request(
       :get, url, [
         pool: :default,
@@ -100,9 +95,9 @@ defmodule LinksFetcher do
 
   defp get_links(body, statics) do
     if statics do
-      Regex.scan(~r/href="([\/]{1}[\w-.\/]*)"/, body)
+      Regex.scan(~r/href="([\/]{1}[\w\.-\?\&\=\/]*)"/, body)
     else
-      Regex.scan(~r/href="([\/]{1}[\w-\/]*)"/, body)
+      Regex.scan(~r/href="([\/]{1}[\w-\?\&\=\/]*)"/, body)
     end
   end
 
