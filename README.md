@@ -1,6 +1,6 @@
 # LinksFetcher
 
-Sample links fetcher spawning process. It has a check_fetched worker for not checking urls twice.
+Sample links fetcher.
 
 It crawls given url in parallel spawning processes and using [hackney](https://github.com/benoitc/hackney).
 
