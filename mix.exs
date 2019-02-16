@@ -1,13 +1,17 @@
 defmodule LinksFetcher.MixProject do
   use Mix.Project
 
+  @description "Sample links fetcher spawning process. It has a check_fetched worker for not checking link twice."
+
   def project do
     [
       app: :links_fetcher,
       version: "0.1.0",
       elixir: "~> 1.8",
+      description: @description,
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      package: package()
     ]
   end
 
@@ -16,6 +20,15 @@ defmodule LinksFetcher.MixProject do
     [
       extra_applications: [:logger]
     ]
+  end
+
+  defp package do
+    %{
+      licenses: ["MIT"],
+      maintainers: ["Johanderson Mogollon"],
+      links: %{"GitHub" => "https://github.com/sonic182/links_fetcher"},
+      files: ["lib", "mix.exs", "README.md", "CHANGELOG.md"]
+    }
   end
 
   # Run "mix help deps" to learn about dependencies.
