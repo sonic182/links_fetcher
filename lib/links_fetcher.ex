@@ -8,12 +8,12 @@ defmodule LinksFetcher do
 
   ## Examples
 
-      iex> LinksFetcher.fetch_links("https://www.google.com", 1)
-      {:ok, ["/preferences?hl=es", "/intl/es/ads/", "/intl/es/policies/privacy/", "/intl/es/policies/terms/"]}
+      iex> LinksFetcher.fetch_links("https://www.mogollon.com.ve/es/", 1)
+      {:ok, ["/es/", "/es/courses/"]}
   """
   def fetch_links(url, depth \\ 1, statics \\ false) do
     base = get_base(url)
-    {:ok, fetcher_checker} = Task.start_link(fn -> fetched([]) end)
+    {:ok, fetcher_checker} = Task.start_link(fn -> fetched(MapSet.new()) end)
     parent = self()
     spawn(fn -> do_fetch(url, base, depth, fetcher_checker, statics, parent) end)
     receive do
@@ -23,14 +23,14 @@ defmodule LinksFetcher do
     end
   end
 
-  defp fetched(list) do
+  defp fetched(set) do
     receive do
       {:add, url} ->
-        fetched([url | list])
+        fetched(set |> MapSet.put(url))
       {:check, sender, url} ->
-        send(sender, {:check, Enum.member?(list, url)})
+        send(sender, {:check, MapSet.member?(set, url)})
     end
-    fetched(list)
+    fetched(set)
   end
 
   defp do_fetch(url, base, depth, fetcher_checker, statics, caller) do
