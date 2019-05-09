@@ -13,9 +13,13 @@ defmodule LinksFetcher do
   """
   def fetch_links(url, depth \\ 1, statics \\ false) do
     base = get_base(url)
+    # spawn process for caching of crawled urls
     {:ok, fetcher_checker} = Task.start_link(fn -> fetched(MapSet.new()) end)
     parent = self()
+
+    # spawn recursive fetcher of links
     spawn(fn -> do_fetch(url, base, depth, fetcher_checker, statics, parent) end)
+
     receive do
       {:ok, links} ->
         Process.exit(fetcher_checker, :normal)
@@ -36,7 +40,10 @@ defmodule LinksFetcher do
   defp do_fetch(url, base, depth, fetcher_checker, statics, caller) do
     me = self()
     send(fetcher_checker, {:check, me, url})
+    checked_url caller, fetcher_checker, depth, url, statics, me, base
+  end
 
+  defp checked_url caller, fetcher_checker, depth, url, statics, me, base do
     receive do
       {:check, true} ->
         send(caller, {:ok, []})
@@ -44,26 +51,31 @@ defmodule LinksFetcher do
         if depth == 0 do
           send(caller, {:ok, []})
         else
-          send(fetcher_checker, {:add, url})
-          {:ok, links} = fetch_data(url, statics)
-          if Enum.empty?(links) do
-            send(caller, {:ok, []})
-          else
-            {:ok, newlinks} = Enum.map(links, fn x ->
-                spawn(fn ->
-                  do_fetch(base <> x, base, depth - 1, fetcher_checker, statics, me)
-                end)
-              end) |>
-              Enum.map(fn _x ->
-                receive do
-                  {:ok, links} -> {:ok, links}
-                end
-              end) |>
-              Enum.reduce(fn {:ok, links1}, {:ok, links2} -> {:ok, links1 ++ links2} end)
-
-            send(caller, {:ok, links ++ newlinks})
-          end
+          fetch_unfetched url, fetcher_checker, url, statics, caller, depth, me, base
         end
+    end
+  end
+
+  defp fetch_unfetched url, fetcher_checker, url, statics, caller, depth, me, base do
+    send(fetcher_checker, {:add, url})
+    {:ok, links} = fetch_data(url, statics)
+
+    if Enum.empty?(links) do
+      send(caller, {:ok, []})
+    else
+      {:ok, newlinks} = Enum.map(links, fn x ->
+          spawn(fn ->
+            do_fetch(base <> x, base, depth - 1, fetcher_checker, statics, me)
+          end)
+        end) |>
+        Enum.map(fn _x ->
+          receive do
+            {:ok, links} -> {:ok, links}
+          end
+        end) |>
+        Enum.reduce(fn {:ok, links1}, {:ok, links2} -> {:ok, links1 ++ links2} end)
+
+      send(caller, {:ok, links ++ newlinks})
     end
   end
 

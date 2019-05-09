@@ -2,7 +2,7 @@ defmodule LinksFetcherTest do
   use ExUnit.Case
   doctest LinksFetcher
 
-  test "minimal http sample" do
+  test "minimal http call sample" do
     {:ok, _status, _respheaders, client} = :hackney.request(
       :get,
       "https://ipinfo.io/ip",
