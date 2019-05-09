@@ -1,5 +1,6 @@
 defmodule LinksFetcher do
   require Logger
+
   @moduledoc """
   Documentation for LinksFetcher.
   """
@@ -31,49 +32,59 @@ defmodule LinksFetcher do
     receive do
       {:add, url} ->
         fetched(set |> MapSet.put(url))
+
       {:check, sender, url} ->
         send(sender, {:check, MapSet.member?(set, url)})
     end
+
     fetched(set)
   end
 
   defp do_fetch(url, base, depth, fetcher_checker, statics, caller) do
     me = self()
     send(fetcher_checker, {:check, me, url})
-    checked_url caller, fetcher_checker, depth, url, statics, me, base
+    checked_url(caller, fetcher_checker, depth, url, statics, me, base)
   end
 
-  defp checked_url caller, fetcher_checker, depth, url, statics, me, base do
+  defp checked_url(caller, fetcher_checker, depth, url, statics, me, base) do
     receive do
       {:check, true} ->
         send(caller, {:ok, []})
+
       {:check, false} ->
         if depth == 0 do
           send(caller, {:ok, []})
         else
-          fetch_unfetched url, fetcher_checker, url, statics, caller, depth, me, base
+          fetch_unfetched(url, fetcher_checker, url, statics, caller, depth, me, base)
         end
     end
   end
 
-  defp fetch_unfetched url, fetcher_checker, url, statics, caller, depth, me, base do
+  defp fetch_unfetched(url, fetcher_checker, url, statics, caller, depth, me, base) do
     send(fetcher_checker, {:add, url})
     {:ok, links} = fetch_data(url, statics)
 
     if Enum.empty?(links) do
       send(caller, {:ok, []})
     else
-      {:ok, newlinks} = Enum.map(links, fn x ->
+      # Here is the magic, spawn child process per link retrieved
+      # this new process will crawl in the level inside
+
+      # spawn crawlers
+      {:ok, newlinks} =
+        Enum.map(links, fn x ->
           spawn(fn ->
             do_fetch(base <> x, base, depth - 1, fetcher_checker, statics, me)
           end)
-        end) |>
-        Enum.map(fn _x ->
+        end)
+        # receive from crawlers
+        |> Enum.map(fn _x ->
           receive do
             {:ok, links} -> {:ok, links}
           end
-        end) |>
-        Enum.reduce(fn {:ok, links1}, {:ok, links2} -> {:ok, links1 ++ links2} end)
+        end)
+        # Reduce responses
+        |> Enum.reduce(fn {:ok, links1}, {:ok, links2} -> {:ok, links1 ++ links2} end)
 
       send(caller, {:ok, links ++ newlinks})
     end
@@ -85,25 +96,32 @@ defmodule LinksFetcher do
   end
 
   defp fetch_data(url, statics) do
-    Logger.debug "Fetching: #{url}"
+    Logger.debug("Fetching: #{url}")
+
     case :hackney.request(
-      :get, url,
-      [{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0.3 Safari/605.1.15"}],
-      "",
-      [
-        pool: :default,
-        follow_redirect: true,
-        max_redirect: 5,
-        force_redirect: true
-      ]
-    ) do
+           :get,
+           url,
+           [
+             {"User-Agent",
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0.3 Safari/605.1.15"}
+           ],
+           "",
+           pool: :default,
+           follow_redirect: true,
+           max_redirect: 5,
+           force_redirect: true
+         ) do
       {:ok, _status, _headers, client} ->
         {:ok, body} = :hackney.body(client)
         data = get_links(body, statics)
-        links = Enum.map(data, fn [_head | tail] -> tail end)
+
+        links =
+          Enum.map(data, fn [_head | tail] -> tail end)
           |> Enum.map(fn [item] -> item end)
           |> Enum.reduce([], fn x, accum -> reduce_links(x, accum) end)
+
         {:ok, links}
+
       {:error, _error} ->
         {:ok, []}
     end
