@@ -23,5 +23,5 @@ end
 
 ```elixir
 iex> LinksFetcher.fetch_links("https://www.google.com", 1)
-{:ok, ["/preferences?hl=es", "/intl/es/ads/", "/intl/es/policies/privacy/", "/intl/es/policies/terms/"]}
+  ["/preferences?hl=es", "/intl/es/ads/", "/intl/es/policies/privacy/", "/intl/es/policies/terms/"]
 ```

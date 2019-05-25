@@ -1,12 +1,12 @@
 defmodule LinksFetcher.MixProject do
   use Mix.Project
 
-  @description "Sample links fetcher spawning process. It has a check_fetched worker for not checking link twice."
+  @description "Sample links fetcher."
 
   def project do
     [
       app: :links_fetcher,
-      version: "0.1.1",
+      version: "0.2.0",
       elixir: "~> 1.8",
       description: @description,
       start_permanent: Mix.env() == :prod,
