@@ -3,16 +3,20 @@ defmodule LinksFetcher.Fetcher do
   use GenServer
   alias LinksFetcher.Fetched
 
-  def start_link() do
-    GenServer.start_link(__MODULE__, nil)
+  def start_link(state) do
+    GenServer.start_link(__MODULE__, state)
+  end
+
+  def start_supervised do
+    DynamicSupervisor.start_child(LinksFetcher.DynamicSupervisor, {__MODULE__, fn -> nil end})
   end
 
   def fetch(fetcher, data) do
     GenServer.cast(fetcher, {:fetch, data})
   end
 
-  def result(fetcher) do
-    GenServer.call(fetcher, :result)
+  def result(fetcher, timeout \\ 30000) do
+    GenServer.call(fetcher, :result, timeout)
   end
 
   # Callbacks
@@ -26,8 +30,16 @@ defmodule LinksFetcher.Fetcher do
     # spawn process for caching of crawled urls
     {:ok, fetcher_checker} = Fetched.start_link()
 
-    do_fetch(url, base, depth, statics, fetcher_checker)
-    |> result()
+    res =
+      do_fetch(url, base, depth, statics, fetcher_checker)
+      |> result()
+
+    cleanup(fetcher_checker)
+    res
+  end
+
+  def cleanup(fetched) do
+    Process.exit(fetched, :normal)
   end
 
   @impl true
@@ -54,7 +66,7 @@ defmodule LinksFetcher.Fetcher do
   end
 
   defp do_fetch(url, base, depth, statics, fetcher_checker) do
-    {:ok, fetcher} = start_link()
+    {:ok, fetcher} = start_supervised()
     fetch(fetcher, {url, base, depth, statics, fetcher_checker})
     fetcher
   end
