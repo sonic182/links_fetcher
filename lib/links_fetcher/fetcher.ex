@@ -25,14 +25,14 @@ defmodule LinksFetcher.Fetcher do
     {:ok, data}
   end
 
-  def fetch_links(url, depth \\ 1, statics \\ false) do
+  def fetch_links(url, depth \\ 1, statics \\ false, timeout \\ 10000) do
     base = get_base(url)
     # spawn process for caching of crawled urls
     {:ok, fetcher_checker} = Fetched.start_link()
 
     res =
-      do_fetch(url, base, depth, statics, fetcher_checker)
-      |> result()
+      do_fetch(url, base, depth, statics, fetcher_checker, timeout)
+      |> result(timeout)
 
     cleanup(fetcher_checker)
     res
@@ -43,7 +43,7 @@ defmodule LinksFetcher.Fetcher do
   end
 
   @impl true
-  def handle_cast({:fetch, {url, base, depth, statics, fetcher_checker}}, _data) do
+  def handle_cast({:fetch, {url, base, depth, statics, fetcher_checker, timeout}}, _data) do
     res = Fetched.url_fetched?(fetcher_checker, url)
 
     case res do
@@ -54,7 +54,7 @@ defmodule LinksFetcher.Fetcher do
         if depth == 0 do
           {:noreply, []}
         else
-          {:ok, links} = fetch_unfetched(url, fetcher_checker, statics, depth, base)
+          {:ok, links} = fetch_unfetched(url, fetcher_checker, statics, depth, base, timeout)
           {:noreply, links}
         end
     end
@@ -65,13 +65,13 @@ defmodule LinksFetcher.Fetcher do
     {:reply, data, nil}
   end
 
-  defp do_fetch(url, base, depth, statics, fetcher_checker) do
+  defp do_fetch(url, base, depth, statics, fetcher_checker, timeout) do
     {:ok, fetcher} = start_supervised()
-    fetch(fetcher, {url, base, depth, statics, fetcher_checker})
+    fetch(fetcher, {url, base, depth, statics, fetcher_checker, timeout})
     fetcher
   end
 
-  defp fetch_unfetched(url, fetcher_checker, statics, depth, base) do
+  defp fetch_unfetched(url, fetcher_checker, statics, depth, base, timeout) do
     Fetched.add_fetched(fetcher_checker, url)
     {:ok, links} = fetch_data(url, statics)
 
@@ -84,11 +84,11 @@ defmodule LinksFetcher.Fetcher do
       # spawn crawlers
       newlinks =
         Enum.map(links, fn x ->
-          do_fetch(base <> x, base, depth - 1, statics, fetcher_checker)
+          do_fetch(base <> x, base, depth - 1, statics, fetcher_checker, timeout)
         end)
         # fetch results
         |> Enum.map(fn fetcher ->
-          result(fetcher)
+          result(fetcher, timeout)
         end)
         # Reduce responses
         |> Enum.reduce(fn l1, l2 -> l1 ++ l2 end)
