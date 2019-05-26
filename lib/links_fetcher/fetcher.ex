@@ -73,7 +73,7 @@ defmodule LinksFetcher.Fetcher do
 
   defp fetch_unfetched(url, fetcher_checker, statics, depth, base, timeout) do
     Fetched.add_fetched(fetcher_checker, url)
-    {:ok, links} = fetch_data(url, statics)
+    {:ok, links} = fetch_data(base, url, statics)
 
     if Enum.empty?(links) do
       {:ok, []}
@@ -102,7 +102,7 @@ defmodule LinksFetcher.Fetcher do
     base
   end
 
-  defp fetch_data(url, statics) do
+  defp fetch_data(base, url, statics) do
     Logger.debug("Fetching: #{url}")
 
     case :hackney.request(
@@ -120,11 +120,10 @@ defmodule LinksFetcher.Fetcher do
          ) do
       {:ok, _status, _headers, client} ->
         {:ok, body} = :hackney.body(client)
-        data = get_links(body, statics)
+        data = get_links(base, body, statics)
 
         links =
-          Enum.map(data, fn [_head | tail] -> tail end)
-          |> Enum.map(fn [item] -> item end)
+          Enum.map(data, fn item -> Enum.at(item, -1) end)
           |> Enum.reduce([], fn x, accum -> reduce_links(x, accum) end)
 
         {:ok, links}
@@ -134,11 +133,16 @@ defmodule LinksFetcher.Fetcher do
     end
   end
 
-  defp get_links(body, statics) do
+  defp get_links(base, body, statics) do
     if statics do
-      Regex.scan(~r/href="([\/]{1}[\w\.-\?\&\=\/]*)"/, body)
+      {:ok, rgx} = Regex.compile("href=\"(#{base})?([/]{1}[\\w\\.-\\?\\&\\=/]*)\"")
+      res = Regex.scan(rgx, body)
+      Enum.filter(res, fn x -> Enum.at(x, -1) != "" end)
     else
       Regex.scan(~r/href="([\/]{1}[\w-\?\&\=\/]*)"/, body)
+      {:ok, rgx} = Regex.compile("href=\"(#{base})?([/]{1}[\\w-\\?\\&\\=/]*)\"")
+      res = Regex.scan(rgx, body)
+      Enum.filter(res, fn x -> Enum.at(x, -1) != "" end)
     end
   end
 

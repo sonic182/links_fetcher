@@ -18,7 +18,7 @@ defmodule LinksFetcherTest do
   end
 
   test "fetch links" do
-    links = LinksFetcher.fetch_links("https://www.inmoduran.net/es/", 3)
+    links = LinksFetcher.fetch_links("https://www.google.es", 3)
 
     all_are_links =
       Enum.map(links, fn x -> Regex.match?(~r/^([\/]{1}[\w-\.\?\&\=\/]*)$/, x) end)

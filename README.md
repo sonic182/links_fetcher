@@ -9,10 +9,6 @@ At this time just crawls relative paths in given url.
 * Docs: [https://hexdocs.pm/links_fetcher](https://hexdocs.pm/links_fetcher)
 * Hex: [https://hex.pm/packages/links_fetcher](https://hex.pm/packages/links_fetcher)
 
-## TODO
-
-* Detect type of paths in given url (relative or absolute).
-
 ## Installation
 
 The package can be installed by adding `links_fetcher` to your list of dependencies in `mix.exs`:
@@ -29,5 +25,5 @@ end
 
 ```elixir
 iex> LinksFetcher.fetch_links("https://www.google.com", 1)
-  ["/preferences?hl=es", "/intl/es/ads/", "/intl/es/policies/privacy/", "/intl/es/policies/terms/"]
+  ["/intl/es_es/policies/privacy/?fg=1", "/intl/es_es/policies/terms/?fg=1", "/preferences?hl=es", "/calendar?tab=wc"]
 ```
